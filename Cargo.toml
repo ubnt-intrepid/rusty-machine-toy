@@ -1,0 +1,8 @@
+[package]
+name = "rusty-machine-toy"
+version = "0.1.0"
+authors = ["Yusuke Sasaki <yusuke.sasaki.nuem@gmail.com>"]
+
+[dependencies]
+rusty-machine = "^0.5.1"
+rand = "^0.3.14"
