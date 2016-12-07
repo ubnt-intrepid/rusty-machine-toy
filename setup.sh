@@ -1,9 +1,6 @@
-#!/bin/bash
+#!/bin/bash -e
 
-[[ -d .venv/ ]] || python3 -mvenv .venv
+venvname=rusty-machine-toy
+pythonexe=/usr/bin/python3.5
 
-export VIRTUAL_ENV_DISABLE_PROMPT=true
-source .venv/bin/activate
-
-python -mpip install --upgrade pip
-pip install -r requirements.txt
+(workon | grep $venvname) || mkvirtualenv --python=$pythonexe $venvname
