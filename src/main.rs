@@ -4,6 +4,11 @@ extern crate rustc_serialize;
 extern crate rusty_machine as rm;
 extern crate rmp_serialize as msgpack;
 
+use rand::distributions::IndependentSample;
+use rm::linalg::{Vector, Matrix};
+use rm::learning::gmm::{CovOption, GaussianMixtureModel};
+use rm::learning::UnSupModel;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, RustcDecodable)]
 struct Iris {
@@ -14,86 +19,76 @@ struct Iris {
     class: i32,
 }
 
-fn load_iris() -> Vec<Iris> {
+fn load_iris() -> Vec<Vec<f64>> {
     let mut reader = csv::Reader::from_file("./data/iris.csv").unwrap().has_headers(true);
 
     let mut dest = Vec::new();
     for row in reader.decode() {
         let row: Iris = row.unwrap();
-        dest.push(row);
+        dest.push(vec![row.sepal_length, row.sepal_width]);
     }
     dest
 }
 
-
 fn main() {
     // read iris dataset.
     let iris = load_iris();
-    let n_datasets = ((iris.len() as f64) * 0.8) as usize;
 
-    let trains: Vec<_> = iris.iter().take(n_datasets).cloned().collect();
-    let tests: Vec<_> = iris.iter().skip(n_datasets).cloned().collect();
-    drop(iris);
+    let mut rng = rand::thread_rng();
+    let dist = rand::distributions::Range::new(0.0, 1.0);
 
-    use rm::linalg::{Vector, Matrix};
+    let (train_inputs, test_inputs): (Vec<_>, Vec<_>) = iris.iter()
+        .cloned()
+        .partition(|_| dist.ind_sample(&mut rng) >= 0.02);
 
-    let _inputs: Vec<f64> = trains.iter()
-        .flat_map(|iris| vec![iris.petal_length, iris.petal_width])
-        .collect();
-    let inputs = Matrix::new(n_datasets, 2, _inputs);
+    let mut gmm = GaussianMixtureModel::new(2);
+    gmm.set_max_iters(100);
+    gmm.cov_option = CovOption::Full;
 
-    let _targets: Vec<f64> = trains.iter().map(|iris| iris.class.into()).collect();
-    let targets = Vector::new(_targets);
+    {
+        let inputs: Vec<f64> = train_inputs.iter().flat_map(Clone::clone).collect();
+        let inputs = Matrix::new(train_inputs.len(), 2, inputs);
+        gmm.train(&inputs).unwrap();
+    }
 
-    use rm::learning::logistic_reg::LogisticRegressor;
-    use rm::learning::optim::grad_desc::GradientDesc;
+    let probs;
+    {
+        let inputs: Vec<f64> = test_inputs.iter().flat_map(Clone::clone).collect();
+        let inputs = Matrix::new(test_inputs.len(), 2, inputs);
 
-    // create instances of optimizer and regressor.
-    let gd = GradientDesc::default();
-    let mut lr = LogisticRegressor::new(gd);
+        probs = gmm.predict(&inputs).unwrap().into_vec();
+    }
 
-    use rm::learning::SupModel;
-    lr.train(&inputs, &targets).unwrap();
-
-    let lr = lr;
-
-
-    let x1_test: Vec<f64> = tests.iter().map(|iris| iris.petal_length).collect();
-    let x2_test: Vec<f64> = tests.iter().map(|iris| iris.petal_width).collect();
-
-    let inputs: Vec<_> =
-        x1_test.iter().zip(x2_test.iter()).flat_map(|(&x1, &x2)| vec![x1, x2]).collect();
-    let inputs = Matrix::new(x1_test.len(), 2, inputs);
-
-    let predicted = lr.predict(&inputs).unwrap();
-
-    let params = lr.parameters().cloned().unwrap();
-
-    plot_decision_regions(inputs, targets, params, x1_test, x2_test, predicted);
+    plot_result(train_inputs,
+                test_inputs,
+                probs,
+                gmm.means().cloned().unwrap(),
+                gmm.covariances().cloned().unwrap(),
+                gmm.mixture_weights().clone());
 }
 
-fn plot_decision_regions(inputs: rm::linalg::Matrix<f64>,
-                         targets: rm::linalg::Vector<f64>,
-                         params: rm::linalg::Vector<f64>,
-                         x1_test: Vec<f64>,
-                         x2_test: Vec<f64>,
-                         predicted: rm::linalg::Vector<f64>) {
+fn plot_result(train_inputs: Vec<Vec<f64>>,
+               test_inputs: Vec<Vec<f64>>,
+               probs: Vec<f64>,
+               means: Matrix<f64>,
+               covariances: Vec<Matrix<f64>>,
+               mixture_weights: Vector<f64>) {
     #[derive(RustcEncodable)]
     struct Value {
-        inputs: Vec<f64>,
-        targets: Vec<f64>,
-        params: Vec<f64>,
-        x1_test: Vec<f64>,
-        x2_test: Vec<f64>,
-        predicted: Vec<f64>,
+        train_inputs: Vec<Vec<f64>>,
+        test_inputs: Vec<Vec<f64>>,
+        probs: Vec<f64>,
+        means: Vec<f64>,
+        covariances: Vec<Vec<f64>>,
+        mixture_weights: Vec<f64>,
     }
     let val = Value {
-        inputs: inputs.into_vec(),
-        targets: targets.into_vec(),
-        params: params.into_vec(),
-        x1_test: x1_test,
-        x2_test: x2_test,
-        predicted: predicted.into_vec(),
+        train_inputs: train_inputs,
+        test_inputs: test_inputs,
+        probs: probs,
+        means: means.into_vec(),
+        covariances: covariances.into_iter().map(|c| c.into_vec()).collect(),
+        mixture_weights: mixture_weights.into_vec(),
     };
 
     use rustc_serialize::Encodable;

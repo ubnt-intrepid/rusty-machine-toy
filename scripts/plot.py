@@ -2,19 +2,24 @@
 
 import sys
 import msgpack
+import numpy as np
 
-# import matplotlib as mpl
-# import matplotlib.pyplot as plt
-# mpl.use('Agg')
+import matplotlib as mpl
+mpl.use('Agg')
+import matplotlib.pyplot as plt
 
 data = msgpack.unpackb(sys.stdin.buffer.read())
 
-inputs = data[0]
-targets = data[1]
-params = data[2]
+train_inputs = np.matrix(data[0])
+test_inputs = np.matrix(data[1])
+probs = np.array(data[2])
+print(probs)
 
-x1_test   = data[3]
-x2_test   = data[4]
-predicted = data[5]
+mixutre_weights = np.array(data[5])
+means = list(np.array(m) for m in data[3])
+covariances = list(np.matrix(m) for m in data[4])
 
-print(x1_test, x2_test, predicted)
+plt.scatter(train_inputs[:,0], train_inputs[:,1], color="red", label="train")
+plt.scatter(test_inputs[:,0], test_inputs[:,1], color="blue", label="test")
+plt.legend(loc="best")
+plt.savefig("result.png")
