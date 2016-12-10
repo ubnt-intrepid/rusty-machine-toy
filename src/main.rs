@@ -1,59 +1,62 @@
-extern crate rusty_machine;
-extern crate rand;
+extern crate csv;
+extern crate rustc_serialize;
+extern crate rusty_machine as rm;
+extern crate rmp_serialize as msgpack;
 
-use rusty_machine::linalg::{BaseMatrix, Matrix};
-use rusty_machine::learning::k_means::KMeansClassifier;
-use rusty_machine::learning::UnSupModel;
+use std::{io, process};
+use rm::linalg;
 
-use rand::distributions::{Normal, IndependentSample};
+use std::io::Write;
+use rm::learning::logistic_reg::LogisticRegressor;
+use rm::learning::SupModel;
 
+use rustc_serialize::Encodable;
+use msgpack::Encoder;
 
-fn generate_data(centroids: &Matrix<f64>, points_per_centroid: usize, noise: f64) -> Matrix<f64> {
-    assert!(centroids.cols() > 0 && centroids.rows() > 0,
-            "Centroids must not be empty.");
-    assert!(noise >= 0.0, "Noise must be non-negative");
+#[allow(dead_code)]
+#[derive(Debug,RustcDecodable)]
+struct Iris {
+    sepal_length: f64,
+    sepal_width: f64,
+    petal_length: f64,
+    petal_width: f64,
+    class: i32,
+}
 
-    let mut raw_cluster_data = Vec::with_capacity(centroids.rows() * points_per_centroid *
-                                                  centroids.cols());
+fn load_iris() -> io::Result<Vec<Iris>> {
+    let mut reader = csv::Reader::from_file("./data/iris.csv").unwrap().has_headers(true);
 
-    let mut rng = rand::thread_rng();
-    let normal_rv = Normal::new(0.0, noise);
-
-    for _ in 0..points_per_centroid {
-        for centroid in centroids.iter_rows() {
-            let mut point = Vec::with_capacity(centroids.cols());
-            for feature in centroid {
-                point.push(feature + normal_rv.ind_sample(&mut rng));
-            }
-
-            raw_cluster_data.extend(point);
-        }
+    let mut dest = Vec::new();
+    for row in reader.decode() {
+        let row: Iris = row.unwrap();
+        dest.push(row);
     }
-
-    Matrix::new(centroids.rows() * points_per_centroid,
-                centroids.cols(),
-                raw_cluster_data)
+    Ok(dest)
 }
 
 fn main() {
-    // parameters:
-    let samples_per_centroid = 2000;
-    let centroids = Matrix::new(2, 2, vec![-0.5, -0.5, 0.0, 0.5]);
-    let noise = 0.4;
+    let iris = load_iris().unwrap();
+    let n_datasets = iris.len();
+    let x1: Vec<_> = iris.iter().map(|iris| iris.petal_length).collect();
+    let x2: Vec<_> = iris.iter().map(|iris| iris.petal_width).collect();
+    let inputs: Vec<_> = x1.iter().zip(x2.iter()).flat_map(|(&x1, &x2)| vec![x1, x2]).collect();
+    let inputs = linalg::Matrix::new(n_datasets, 2, inputs);
+    let targets =
+        linalg::Vector::new(iris.iter().map(|iris| iris.class.into()).collect::<Vec<f64>>());
 
-    // generate samples
-    let samples = generate_data(&centroids, samples_per_centroid, noise);
+    let mut lr = LogisticRegressor::default();
+    lr.train(&inputs, &targets).unwrap();
 
-    // create a model with 2 clusters.
-    let n_clusters = 2;
-    let mut model = KMeansClassifier::new(n_clusters);
+    let val = (42u8, "the Answer");
 
-    // train the model.
-    model.train(&samples).unwrap();
-
-    let classes = model.predict(&samples).unwrap();
-    let (first, second): (Vec<usize>, Vec<_>) = classes.data().iter().partition(|&x| *x == 0);
-
-    println!("Samples closest to first centroid: {}", first.len());
-    println!("Samples closest to second centroid: {}", second.len());
+    let mut buf = vec![0u8; 13];
+    val.encode(&mut Encoder::new(&mut &mut buf[..])).unwrap();
+    let mut child = process::Command::new("python")
+        .arg("./scripts/plot.py")
+        .stdin(process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.as_mut().unwrap().write_all(&buf[..]).unwrap();
+    let output = child.wait_with_output().unwrap();
+    drop(output);
 }

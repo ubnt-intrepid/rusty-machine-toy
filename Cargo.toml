@@ -6,3 +6,7 @@ authors = ["Yusuke Sasaki <yusuke.sasaki.nuem@gmail.com>"]
 [dependencies]
 rusty-machine = "^0.5.1"
 rand = "^0.3.14"
+rmp = "^0.7"
+rmp-serialize = "*"
+rustc-serialize = "*"
+csv = "*"
