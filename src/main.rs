@@ -19,7 +19,7 @@ struct Iris {
     class: i32,
 }
 
-fn load_iris() -> Vec<Vec<f64>> {
+fn load_iris_dataset() -> (Vec<Vec<f64>>, Vec<Vec<f64>>) {
     let mut reader = csv::Reader::from_file("./data/iris.csv").unwrap().has_headers(true);
 
     let mut dest = Vec::new();
@@ -27,41 +27,41 @@ fn load_iris() -> Vec<Vec<f64>> {
         let row: Iris = row.unwrap();
         dest.push(vec![row.sepal_length, row.sepal_width]);
     }
-    dest
-}
-
-fn main() {
-    // read iris dataset.
-    let iris = load_iris();
 
     let mut rng = rand::thread_rng();
     let dist = rand::distributions::Range::new(0.0, 1.0);
 
-    let (train_inputs, test_inputs): (Vec<_>, Vec<_>) = iris.iter()
+    dest.iter()
         .cloned()
-        .partition(|_| dist.ind_sample(&mut rng) >= 0.02);
+        .partition(|_| dist.ind_sample(&mut rng) >= 0.02)
+}
 
+fn into_matrix(data: &Vec<Vec<f64>>, size: usize) -> Matrix<f64> {
+    Matrix::new(data.len(),
+                size,
+                data.iter().flat_map(Clone::clone).collect::<Vec<f64>>())
+}
+
+fn main() {
+    // read iris dataset.
+    let (train_inputs, test_inputs) = load_iris_dataset();
+
+    // construct Gaussian mixture model.
     let mut gmm = GaussianMixtureModel::new(2);
     gmm.set_max_iters(100);
     gmm.cov_option = CovOption::Full;
 
-    {
-        let inputs: Vec<f64> = train_inputs.iter().flat_map(Clone::clone).collect();
-        let inputs = Matrix::new(train_inputs.len(), 2, inputs);
-        gmm.train(&inputs).unwrap();
-    }
+    // train.
+    let inputs = into_matrix(&train_inputs, 2);
+    gmm.train(&inputs).unwrap();
 
-    let probs;
-    {
-        let inputs: Vec<f64> = test_inputs.iter().flat_map(Clone::clone).collect();
-        let inputs = Matrix::new(test_inputs.len(), 2, inputs);
-
-        probs = gmm.predict(&inputs).unwrap().into_vec();
-    }
+    // calculate
+    let inputs = into_matrix(&test_inputs, 2);
+    let probs = gmm.predict(&inputs).unwrap();
 
     plot_result(train_inputs,
                 test_inputs,
-                probs,
+                probs.into_vec(),
                 gmm.means().cloned().unwrap(),
                 gmm.covariances().cloned().unwrap(),
                 gmm.mixture_weights().clone());
