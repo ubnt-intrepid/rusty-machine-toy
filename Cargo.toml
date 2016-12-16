@@ -10,3 +10,4 @@ rmp = "^0.7"
 rmp-serialize = "*"
 rustc-serialize = "*"
 csv = "*"
+rustplotlib = { path = "./rustplotlib" }

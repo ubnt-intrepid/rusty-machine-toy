@@ -7,6 +7,7 @@ dependencies = [
  "rmp 0.7.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rmp-serialize 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustplotlib 0.0.4",
  "rusty-machine 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -109,6 +110,10 @@ dependencies = [
 name = "rustc-serialize"
 version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "rustplotlib"
+version = "0.0.4"
 
 [[package]]
 name = "rusty-machine"

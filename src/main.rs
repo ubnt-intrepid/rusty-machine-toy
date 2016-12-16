@@ -59,52 +59,10 @@ fn main() {
     let inputs = into_matrix(&test_inputs, 2);
     let probs = gmm.predict(&inputs).unwrap();
 
-    plot_result(train_inputs,
-                test_inputs,
-                probs.into_vec(),
-                gmm.means().cloned().unwrap(),
-                gmm.covariances().cloned().unwrap(),
-                gmm.mixture_weights().clone());
-}
-
-fn plot_result(train_inputs: Vec<Vec<f64>>,
-               test_inputs: Vec<Vec<f64>>,
-               probs: Vec<f64>,
-               means: Matrix<f64>,
-               covariances: Vec<Matrix<f64>>,
-               mixture_weights: Vector<f64>) {
-    #[derive(RustcEncodable)]
-    struct Value {
-        train_inputs: Vec<Vec<f64>>,
-        test_inputs: Vec<Vec<f64>>,
-        probs: Vec<f64>,
-        means: Vec<f64>,
-        covariances: Vec<Vec<f64>>,
-        mixture_weights: Vec<f64>,
-    }
-    let val = Value {
-        train_inputs: train_inputs,
-        test_inputs: test_inputs,
-        probs: probs,
-        means: means.into_vec(),
-        covariances: covariances.into_iter().map(|c| c.into_vec()).collect(),
-        mixture_weights: mixture_weights.into_vec(),
-    };
-
-    use rustc_serialize::Encodable;
-    use msgpack::Encoder;
-    let mut buf = Vec::new();
-    val.encode(&mut Encoder::new(&mut buf)).unwrap();
-
-    use std::io::Write;
-    use std::process::{Command, Stdio};
-    let mut child = Command::new("python")
-        .arg("./scripts/plot.py")
-        .stdin(Stdio::piped())
-        .spawn()
-        .unwrap();
-
-    child.stdin.as_mut().unwrap().write_all(&buf[..]).unwrap();
-
-    child.wait_with_output().unwrap();
+    //    plot_result(train_inputs,
+    //                test_inputs,
+    //                probs.into_vec(),
+    //                gmm.means().cloned().unwrap(),
+    //                gmm.covariances().cloned().unwrap(),
+    //                gmm.mixture_weights().clone());
 }
