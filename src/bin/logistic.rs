@@ -2,7 +2,6 @@ extern crate csv;
 extern crate rand;
 extern crate rustc_serialize;
 extern crate rusty_machine as rm;
-extern crate rmp_serialize as msgpack;
 
 use rand::distributions::IndependentSample;
 use rm::linalg::{Vector, Matrix};
