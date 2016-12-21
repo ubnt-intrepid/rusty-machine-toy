@@ -1,3 +1,0 @@
-[submodule "rustplotlib"]
-	path = rustplotlib
-	url = https://github.com/ubnt-intrepid/rustplotlib.git
